@@ -24,7 +24,7 @@ class TLDetector(object):
         self.waypoints = None
         self.camera_image = None
         self.lights = []
-        self.traffic_positions = get_given_traffic_lights()
+        self.traffic_positions = self.get_given_traffic_lights()
 
         self.last_traffic_light_state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
@@ -69,7 +69,7 @@ class TLDetector(object):
 
         rospy.spin()
 
-    def get_given_traffic_lights():
+    def get_given_traffic_lights(self):
         """
         Return given traffic light positions
         :return: TrafficLightArray
@@ -95,7 +95,7 @@ class TLDetector(object):
 
         return traffic_lights
 
-    def get_waypoints_matrix(waypoints):
+    def get_waypoints_matrix(self, waypoints):
         """
         Converts waypoints listt to numpy matrix
         :param waypoints: list of styx_msgs.msg.Waypoint instances
@@ -117,7 +117,7 @@ class TLDetector(object):
         if are_arguments_available:
 
             # Get closest traffic light
-            traffic_light = tf_helper.get_closest_traffic_light_ahead_of_car(
+            traffic_light = self.get_closest_traffic_light_ahead_of_car(
                 self.traffic_positions.lights, self.car_pose.position, self.waypoints)
 
             # These values seem so be wrong - Udacity keeps on putting in config different values that what camera
@@ -159,7 +159,7 @@ class TLDetector(object):
                 if traffic_light_state == TrafficLight.RED or traffic_light == TrafficLight.YELLOW:
                     self.upcoming_stop_light_pub.publish(traffic_light.pose.pose.position)
 
-    def get_closest_waypoint_index(position, waypoints_matrix):
+    def get_closest_waypoint_index(self, position, waypoints_matrix):
         """
         Given a pose and waypoints list, return index of waypoint closest to pose
         :param position: geometry_msgs.msgs.Position instance
@@ -222,7 +222,7 @@ class TLDetector(object):
         #TODO implement
         return 0
 
-    def get_road_distance(waypoints):
+    def get_road_distance(self, waypoints):
         """
         Get road distance covered when following waypoints
         :param waypoints: list of styx_msgs.msg.Waypoint instances
@@ -242,7 +242,7 @@ class TLDetector(object):
 
         return total_distance
 
-    def project_to_image_plane(self, point_in_world):
+    def project_to_image_plane(self, point_in_world, car_pose, image_width, image_height):
         """Project point from 3D world coordinates to 2D camera image location
 
         Args:
@@ -301,7 +301,7 @@ class TLDetector(object):
 
         return (x, y)
 
-    def get_closest_traffic_light_ahead_of_car(traffic_lights, car_position, waypoints):
+    def get_closest_traffic_light_ahead_of_car(self, traffic_lights, car_position, waypoints):
         """
         Given list of traffic lights, car position and waypoints, return closest traffic light
         ahead of the car. This function wraps around the track, so that if car is at the end of the track,
@@ -312,20 +312,20 @@ class TLDetector(object):
         :return: styx_msgs.msg.TrafficLight instance
         """
 
-        waypoints_matrix = get_waypoints_matrix(waypoints)
-        car_index = get_closest_waypoint_index(car_position, waypoints_matrix)
+        waypoints_matrix = self.get_waypoints_matrix(waypoints)
+        car_index = self.get_closest_waypoint_index(car_position, waypoints_matrix)
 
         # Arrange track waypoints so they start at car position
         waypoints_ahead = waypoints[car_index:] + waypoints[:car_index]
-        waypoints_ahead_matrix = get_waypoints_matrix(waypoints_ahead)
+        waypoints_ahead_matrix = self.get_waypoints_matrix(waypoints_ahead)
 
         distances = []
 
         for traffic_light in traffic_lights:
 
-            waypoint_index = get_closest_waypoint_index(traffic_light.pose.pose.position, waypoints_ahead_matrix)
+            waypoint_index = self.get_closest_waypoint_index(traffic_light.pose.pose.position, waypoints_ahead_matrix)
 
-            distance = get_road_distance(waypoints_ahead[:waypoint_index])
+            distance = self.get_road_distance(waypoints_ahead[:waypoint_index])
             distances.append(distance)
 
         closest_traffic_light_index = np.argmin(distances)
