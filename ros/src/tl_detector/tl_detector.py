@@ -20,13 +20,15 @@ class TLDetector(object):
     def __init__(self):
         rospy.init_node('tl_detector')
 
+        self.pose = None
         self.car_pose = None
         self.waypoints = None
         self.camera_image = None
         self.lights = []
         self.traffic_positions = self.get_given_traffic_lights()
 
-        self.last_traffic_light_state = TrafficLight.UNKNOWN
+        # self.last_traffic_light_state = TrafficLight.UNKNOWN
+        self.state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
         self.state_count = 0
@@ -64,7 +66,7 @@ class TLDetector(object):
 
         self.upcoming_stop_light_pub = rospy.Publisher(
             '/upcoming_stop_light_position', geometry_msgs.msg.Point, queue_size=1)
-
+        self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
         self.image_pub = rospy.Publisher('/camera/my_image', Image, queue_size=1)
 
         rospy.spin()
@@ -78,7 +80,7 @@ class TLDetector(object):
 
         traffic_light_list = []
 
-        tl_height = rospy.get_param("/tl_height")
+        # tl_height = rospy.get_param("/tl_height")
         config_string = rospy.get_param("/traffic_light_config")
         traffic_light_positions = yaml.load(config_string)["light_positions"]
 
@@ -87,7 +89,7 @@ class TLDetector(object):
 
             traffic_light.pose.pose.position.x = traffic_light_position[0]
             traffic_light.pose.pose.position.y = traffic_light_position[1]
-            traffic_light.pose.pose.position.z = tl_height
+            # traffic_light.pose.pose.position.z = tl_height
             traffic_light.state = TrafficLight.UNKNOWN
             traffic_light_list.append(traffic_light)
 
