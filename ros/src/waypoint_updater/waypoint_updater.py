@@ -41,7 +41,7 @@ class WaypointUpdater(object):
         rospy.init_node('waypoint_updater')
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        self.base_waypoints_sub = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
@@ -84,8 +84,11 @@ class WaypointUpdater(object):
     def pose_cb(self, msg):
         self.cur_pose = msg
 
-    def waypoints_cb(self, msg):
-        self.base_waypoints = msg
+    # def waypoints_cb(self, msg):
+    #     self.base_waypoints = msg
+    def waypoints_cb(self, waypoints):
+	self.current_waypoints = waypoints.waypoints
+	self.base_waypoints_sub.unregister()
 
     def traffic_cb(self, msg):
 
