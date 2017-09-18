@@ -177,6 +177,8 @@ class TLDetector(object):
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
+        # self.current_waypoints = waypoints.waypoints
+        # self.base_waypoints_sub.unregister()
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
