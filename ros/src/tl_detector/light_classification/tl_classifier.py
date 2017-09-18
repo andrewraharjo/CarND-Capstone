@@ -11,7 +11,22 @@ import rospy
 
 
 class TLClassifier(object):
-    def __init__(self):
+    def __init__(self, experiment_environment):
+        
+        if experiment_environment == "simulator":
+            
+            model_path = 'light_classification/model/model_sim.json'
+            weights_path = 'light_classification/model/weights_sim.hdf5'
+        
+        elif experiment_environment == "site":
+            
+            model_path = 'light_classification/model/model_site.json'
+            weights_path = 'light_classification/model/weights_site.hdf5'
+        
+        else:
+            
+            raise ValueError("Launch is neither styx.launch nor site.launch!!!")
+        
         # Lower and Upper threshold for color extraction
         self.model = None
         self.create_model()
