@@ -23,9 +23,9 @@ class TLClassifier(object):
             model_path = 'light_classification/model/model_site.json'
             weights_path = 'light_classification/model/weights_site.hdf5'
         
-        else:
+        # else:
             
-            raise ValueError("Launch is neither styx.launch nor site.launch!!!")
+        #     raise ValueError("Launch is neither styx.launch nor site.launch!!!")
         
         # Lower and Upper threshold for color extraction
         self.model = None
