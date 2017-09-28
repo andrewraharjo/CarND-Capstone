@@ -10,7 +10,7 @@ import tensorflow as tf
 import json
 import rospy
 
-ACTIVATE_SIM = true
+ACTIVATE_SIM = True
 
 class TLClassifier(object):
     def __init__(self):
@@ -144,7 +144,7 @@ class TLClassifier(object):
 
                 img_light_bw_np = np.asarray(img_light_gray).copy()
 
-                if ACTIVE_SIM:
+                if ACTIVATE_SIM:
                     img_light_bw_np[img_light_bw_np < 100] = 0  # Black
                     img_light_bw_np[img_light_bw_np >= 100] = 255  # White
                 else:
@@ -158,7 +158,7 @@ class TLClassifier(object):
                 light_colors = []  # red, yellow, green
                 single_light_pixel_count = int(h * w / 3)
 
-                if ACTIVE_SIM:
+                if ACTIVATE_SIM:
                     nzCountRed = np.count_nonzero(np.array(img_light_bw)[int(h / 10):int(h / 3), :]) / (
                         single_light_pixel_count * 1.0)
                     nzCountYellow = np.count_nonzero(np.array(img_light_bw)[int(h / 3):int(h * 2 / 3), :]) / (
@@ -177,7 +177,7 @@ class TLClassifier(object):
 
                 max_i = max(enumerate(light_colors), key=lambda x: x[1])[0]
 
-                if ACTIVE_SIM:
+                if ACTIVATE_SIM:
                     if light_colors[max_i] > 0.05:
                         if max_i == 0:
                             return TrafficLight.RED

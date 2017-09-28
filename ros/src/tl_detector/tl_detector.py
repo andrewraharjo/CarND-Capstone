@@ -234,14 +234,14 @@ class TLDetector(object):
             if LOGINFO:
                 self.publish_roi_image(roi)
 
-            #tlState = self.light_classifier.get_classification(roi)
+            #tlDetect = self.light_classifier.get_classification(roi)
 
         #Get classification
 
-        rospy.loginfo('tlState: {}'.format(tlState))
-        #rospy.loginfo('tlState: {}'.format(light.state))
+        rospy.loginfo('tlDetect: {}'.format(tlDetect))
+        #rospy.loginfo('tlDetect: {}'.format(light.state))
 
-        #return light.state #tlState
+        #return light.state #tlDetect
         return tlDetect
 
     def publish_roi_image(self, img):
