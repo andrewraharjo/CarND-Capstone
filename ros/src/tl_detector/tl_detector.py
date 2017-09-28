@@ -13,7 +13,7 @@ import math
 import numpy as np
 import yaml
 
-LOGINFO = False
+LOGINFO = True
 STATE_COUNT_THRESHOLD = 6
 MAX_DIST = 100.0
 
@@ -210,10 +210,12 @@ class TLDetector(object):
 
         self.camera_image.encoding = "rgb8"
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        '''
 
         x, y = self.project_to_image_plane(light.pose.pose.position)
 
         #TODO use light location to zoom in on traffic light in image
+
         image_width  = self.config['camera_info']['image_width']
         image_height = self.config['camera_info']['image_height']
 
@@ -224,15 +226,16 @@ class TLDetector(object):
         bottom = int(y + h_img)
         left   = int(x - w_img)
         right  = int(x + w_img)
+        '''
 
         tlDetect = TrafficLight.UNKNOWN
         tlDetect = self.light_classifier.get_traffic_classification(cv_image)
 
-        if self.check_inside_image(left,top) and self.check_inside_image(bottom, right):
+        # if self.check_inside_image(left,top) and self.check_inside_image(bottom, right):
 
             # Publish the cropped image on a ROS topic for LOGINFO purposes
-            if LOGINFO:
-                self.publish_roi_image(roi)
+            # if LOGINFO:
+            #    self.publish_roi_image(roi)
 
             #tlDetect = self.light_classifier.get_classification(roi)
 
