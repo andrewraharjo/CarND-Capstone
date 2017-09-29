@@ -26,8 +26,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
-DEBUG         = True
+LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
 SPEED_LIMIT   = 6  # 10 mp/h
 STOP_DIST     = 30 # wp count
 
@@ -61,37 +60,30 @@ class WaypointUpdater(object):
                 next_waypoints = []
 
                 next_wp_i = self.next_waypoint(self.cur_pose.pose, waypoints)
-                to_red_wp_count = 0
+                count_red_wp = 0
                 if self.is_signal_red == True:
-                    # count waypoints between current and red
-                    to_red_wp_count = self.wp_count(next_wp_i, self.red_wp_i+1)
-                    if DEBUG:
-                        rospy.logerr('to red: {}; cur wp: {}, red_wp: {}'.format(to_red_wp_count, next_wp_i, self.red_wp_i+1))
+                    count_red_wp = self.wp_count(next_wp_i, self.red_wp_i+1)
 
-                if (self.is_signal_red == True) and (0 < to_red_wp_count < STOP_DIST):
+                if (self.is_signal_red == True) and (0 < count_red_wp < STOP_DIST):
                     if self.f_sp == None:
                         # sp_x = [waypoints[next_wp_i].pose.pose.position.x, waypoints[self.red_wp_i].pose.pose.position.x]
-                        sp_wp_i = [to_red_wp_count, 0]
+                        sp_wp_i = [count_red_wp, 0]
                         next_wp_velocity = self.get_waypoint_velocity(self.base_waypoints.waypoints[next_wp_i])
                         if next_wp_velocity > SPEED_LIMIT:
                             next_wp_velocity = SPEED_LIMIT
                         sp_v = [next_wp_velocity, 0.0]
                         self.f_sp = interp1d(sp_wp_i, sp_v)
-                    for cur_wp_i in range(to_red_wp_count):
+                    for cur_wp_i in range(count_red_wp):
                         px = waypoints[next_wp_i].pose.pose.position.x
                         next_waypoints.append(waypoints[next_wp_i])
-                        remaining_wp_to_red = to_red_wp_count - cur_wp_i
-                        if DEBUG:
-                            rospy.logerr('value of next waypoint %s red count %s cur_wp_i %s',remaining_wp_to_red, to_red_wp_count, cur_wp_i)
+                        remaining_wp_to_red = count_red_wp - cur_wp_i
                         self.set_waypoint_velocity(next_waypoints, cur_wp_i, self.f_sp(remaining_wp_to_red))
                         next_wp_i = (next_wp_i + 1) % nb_waypoints
                     self.f_sp = None
                     self.set_waypoint_velocity(next_waypoints, cur_wp_i, 0.0)
-                    if DEBUG:
-                        rospy.loginfo("set velocity to 0")
+
                 else:
-                    if DEBUG:
-                        rospy.logerr('normal drive')
+
                     for cur_wp_i in range(LOOKAHEAD_WPS):
                         next_wp_velocity = self.get_waypoint_velocity(self.base_waypoints.waypoints[next_wp_i])
                         if next_wp_velocity > SPEED_LIMIT:
@@ -101,12 +93,6 @@ class WaypointUpdater(object):
                         next_wp_i = (next_wp_i + 1) % nb_waypoints
                     self.f_sp = None
 
-                # next_waypoints = waypoints[next_wp_i:next_wp_i+LOOKAHEAD_WPS]
-
-                if DEBUG:
-                    rospy.logerr('# of wps published: {}'.format(len(next_waypoints)))
-
-                # publish
                 final_waypoints_msg = Lane()
                 final_waypoints_msg.header.frame_id = '/world'
                 final_waypoints_msg.header.stamp = rospy.Time(0)
@@ -131,33 +117,18 @@ class WaypointUpdater(object):
         self.base_waypoints_sub.unregister()
 
     def traffic_cb(self, msg):
-        if DEBUG:
-            rospy.logerr('Got TL')
-            rospy.logerr("message = %s", msg)
 
         if msg.data  >=  0:
             self.is_signal_red = True
             self.red_wp_i = msg.data
             self.move_car = False
-            if DEBUG:
-                rospy.loginfo("data %s signal  = true", msg.data)
+
         else:
             #self.prev_pose = self.cur_pose
             self.move_car = True
             self.red_wp_i = None
             self.is_signal_red = False
 
-            #if self.prev_pose == None:
-            #    self.prev_pose = self.cur_pose
-            #else:
-            #    if (self.prev_pose.pose.position.x == self.cur_pose.pose.position.x) and (self.prev_pose.pose.position.y == self.cur_pose.pose.position.y):
-            #        self.is_signal_red = False
-            #        self.red_wp_i = None
-            #        self.move_car = True
-            #        self.prev_pose = self.cur_pose
-            #        if DEBUG:
-            #            rospy.loginfo("velocity 0 hence changing the state")
-            #    self.prev_pose = self.cur_pose
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -200,19 +171,8 @@ class WaypointUpdater(object):
         (_, _, yaw) = tf.transformations.euler_from_quaternion(pose_quaternion)
         angle = math.fabs(heading - yaw)
 
-        if DEBUG:
-            rospy.logerr('current_pose - x:{}, y:{},z:{}'.format(pose.position.x, pose.position.y, pose.position.z))
-            rospy.logerr('ego yaw: {}'.format(yaw))
-            rospy.logerr('heading: {}, angle: {}'.format(heading, angle))
-            rospy.logerr('closest wp: {}; {}-{}'.format(closest_wp_i, waypoints[closest_wp_i].pose.pose.position.x, waypoints[closest_wp_i].pose.pose.position.y))
-
         if angle > (math.pi / 4):
             closest_wp_i = (closest_wp_i + 1) % len(waypoints)
-            if DEBUG:
-                rospy.logerr('corrected wp: {}; {}-{}'.format(closest_wp_i, waypoints[closest_wp_i].pose.pose.position.x, waypoints[closest_wp_i].pose.pose.position.y))
-
-        if DEBUG:
-            rospy.logerr(' ')
 
         return closest_wp_i
 
