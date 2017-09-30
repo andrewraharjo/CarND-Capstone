@@ -1,4 +1,21 @@
+Bits-Please
+----------------------
 This is the project repo for the final project of the Udacity Self-Driving Car Nanodegree: Programming a Real Self-Driving Car. For more information about the project, see the project introduction [here](https://classroom.udacity.com/nanodegrees/nd013/parts/6047fe34-d93c-4f50-8336-b70ef10cb4b2/modules/e1a23b06-329a-4684-a717-ad476f0d8dff/lessons/462c933d-9f24-42d3-8bdc-a08a5fc866e4/concepts/5ab4b122-83e6-436d-850f-9f4d26627fd9).
+
+### Team Members 
+This repository is maintained by the following:
+- [Andrew Raharjo](https://github.com/andrewraharjo)
+- [Jingxian Lin](https://github.com/JingxianLin)
+- [Raymond Linn](https://github.com/raymond-linn)
+- [Jun Zhu](https://github.com/zhujun98)
+- [Mahmood Salah](https://github.com/Mahmoodsalah)
+
+### Team Members Email
+- [Andrew Raharjo](andrewraharjo@gmail.com)
+- [Jingxian Lin](star0.lin@gmail.com)
+- [Raymond Linn](raymondlinn@gmail.com)
+- [Jun Zhu](zhujun981661@gmail.com)
+- [Mahmood Salah](mahmoodsalah89@gmail.com)
 
 ### Installation 
 
@@ -15,18 +32,18 @@ This is the project repo for the final project of the Udacity Self-Driving Car N
   * [ROS Indigo](http://wiki.ros.org/indigo/Installation/Ubuntu) if you have Ubuntu 14.04.
 * [Dataspeed DBW](https://bitbucket.org/DataspeedInc/dbw_mkz_ros)
   * Use this option to install the SDK on a workstation that already has ROS installed: [One Line SDK Install (binary)](https://bitbucket.org/DataspeedInc/dbw_mkz_ros/src/81e63fcc335d7b64139d7482017d6a97b405e250/ROS_SETUP.md?fileviewer=file-view-default)
-* Download the [Udacity Simulator](https://github.com/udacity/CarND-Capstone/releases/tag/v1.2).
+* Download the [Udacity Simulator](https://github.com/udacity/self-driving-car-sim/releases/tag/v0.1).
 
 ### Usage
 
 1. Clone the project repository
 ```bash
-git clone https://github.com/udacity/CarND-Capstone.git
+git clone https://github.com/udacity/carnd_capstone.git
 ```
 
 2. Install python dependencies
 ```bash
-cd CarND-Capstone
+cd CarNd-Capstone
 pip install -r requirements.txt
 ```
 3. Make and run styx
@@ -37,20 +54,12 @@ source devel/setup.sh
 roslaunch launch/styx.launch
 ```
 4. Run the simulator
+```bash
+unzip linux_system_int
+cd linux_system_int
+chmod +x system_integration.x86_64
+./system_integration.x86_64
+```
 
-### Real world testing
-1. Download [training bag](https://drive.google.com/file/d/0B2_h37bMVw3iYkdJTlRSUlJIamM/view?usp=sharing) that was recorded on the Udacity self-driving car
-2. Unzip the file
-```bash
-unzip traffic_light_bag_files.zip
-```
-3. Play the bag file
-```bash
-rosbag play -l traffic_light_bag_files/loop_with_traffic_light.bag
-```
-4. Launch your project in site mode
-```bash
-cd CarND-Capstone/ros
-roslaunch launch/site.launch
-```
+
 
