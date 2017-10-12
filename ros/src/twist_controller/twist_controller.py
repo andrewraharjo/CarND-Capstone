@@ -1,8 +1,10 @@
-
-import rospy
-import math
+from yaw_controller import YawController
 from pid import PID
 from lowpass import LowPassFilter
+import math
+import rospy
+from styx_msgs.msg import Lane, Waypoint
+from geometry_msgs.msg import PoseStamped, Pose
 
 GAS_DENSITY = 2.858
 ONE_MPH = 0.44704
@@ -10,56 +12,64 @@ ONE_MPH = 0.44704
 
 class Controller(object):
     def __init__(self, *args, **kwargs):
-        self.vehicle_mass = args[0]
-        self.fuel_capacity = args[1]
-        self.brake_deadband = args[2]
-        self.decel_limit = args[3]
-        self.accel_limit = args[4]
-        self.wheel_radius = args[5]
-        self.wheel_base = args[6]
-        self.steer_ratio = args[7]
-        self.max_lat_accel = args[8]
-        self.max_steer_angle = args[9]
+        vehicle_mass    = kwargs['vehicle_mass']
+        fuel_capacity   = kwargs['fuel_capacity']
+        self.brake_deadband  = kwargs['brake_deadband']
+        self.decel_limit 	= kwargs['decel_limit']
+        accel_limit 	= kwargs['accel_limit']
+        wheel_radius 	= kwargs['wheel_radius']
+        wheel_base 		= kwargs['wheel_base']
+        steer_ratio 	= kwargs['steer_ratio']
+        max_lat_accel 	= kwargs['max_lat_accel']
+        max_steer_angle = kwargs['max_steer_angle']
 
-        self.pid_velocity = PID(0.05, 0.0, 0.01)
-        self.pid_steering = PID(4.0, 0.0, 0.7)
-        self.lowpass_velocity = LowPassFilter(13)
-        self.lowpass_steering = LowPassFilter(4)
+        self.brake_tourque_const = (vehicle_mass + fuel_capacity * GAS_DENSITY) * wheel_radius
+        self.current_dbw_enabled = False
+        yaw_params = [wheel_base, steer_ratio, max_lat_accel, max_steer_angle]
+        self.yaw_controller = YawController(*yaw_params)
+        self.linear_pid = PID(0.9, 0.0005, 0.07, self.decel_limit, accel_limit)
+        self.tau_correction = 0.2
+        self.ts_correction = 0.1
+        self.low_pass_filter_correction = LowPassFilter(self.tau_correction, self.ts_correction)
+        self.previous_time = None
+        pass
 
+    def update_sample_step(self):
+        current_time = rospy.get_time() 
+        sample_step = current_time - self.previous_time if self.previous_time else 0.05
+        self.previous_time = current_time
+        return sample_step
 
-    def control(self, *args, **kwargs):
-    	""" vehicle controller
-    	arguments:
-    	- proposed linear velocity
-    	- proposed angular velocity (radians)
-    	- current linear velocity
-    	- elapsed time
-    	- dbw_enabled status
-    	"""
-        target_vel = args[0]
-        target_steer = args[1]
-        cur_vel = args[2]
-        time_elapsed = args[3]
-        dbw_enabled = args[4]
+    def control(self, linear_velocity_setpoint, angular_velocity_setpoint, linear_current_velocity, angular_current, dbw_enabled, final_waypoint1, final_waypoint2, current_location):
+        if (not self.current_dbw_enabled) and dbw_enabled:
+            self.current_dbw_enabled = True
+            self.linear_pid.reset()
+            self.previous_time = None
+        else:
+            self.current_dbw_enabled = False
+        linear_velocity_error = linear_velocity_setpoint - linear_current_velocity
 
-        vel_error = target_vel - cur_vel
-        velocity = self.pid_velocity.step(vel_error, time_elapsed)
-        if (velocity < 0.005) and (velocity > -0.005):
-            velocity = 0.0
-        velocity = self.lowpass_velocity.filt(velocity)
+        sample_step = self.update_sample_step()
 
-        steer_error = target_steer
-        steer = self.pid_steering.step(steer_error, time_elapsed)
-        steer = self.lowpass_steering.filt(steer)
+        velocity_correction = self.linear_pid.step(linear_velocity_error, sample_step)
+        velocity_correction = self.low_pass_filter_correction.filt(velocity_correction)
+        if abs(linear_velocity_setpoint)<0.01 and abs(linear_current_velocity) < 0.1:
+            velocity_correction = self.decel_limit
+        throttle = velocity_correction
+        brake = 0.
+        if throttle < 0.:
+            decel = abs(throttle)
+            #[alexm]NOTE: let engine decelerate the car if required deceleration below brake_deadband
+            brake = self.brake_tourque_const * decel if decel > self.brake_deadband else 0.
+            throttle = 0.
+        
+        #::NOTE this lowpass leads to sending both throttle and brake nonzero. Maybe it is better to filter velocity_correction
+        #brake = self.low_pass_filter_brake.filt(brake)
+        #steering = self.yaw_controller.get_steering_pid(angular_velocity_setpoint, angular_current, dbw_enabled)
+        #steering = 0.
+        #if final_waypoint1 and final_waypoint2 and linear_current_velocity < 1.:
+        #    steering = self.yaw_controller.get_steering_pid_cte(final_waypoint1, final_waypoint2, current_location, dbw_enabled)
+        #else:
+        steering = self.yaw_controller.get_steering_calculated(linear_velocity_setpoint, angular_velocity_setpoint, linear_current_velocity)
 
-
-        throttle = max(velocity, 0.0)
-        brake = math.fabs(min(0.0, velocity)) * 10000 # TODO: tune this multiplier or find a better way...
-
-        # Return throttle, brake, steer
-        return throttle, brake, steer
-    def reset_pid(self):
-        self.pid_velocity.reset()
-        self.pid_steering.reset()
-        self.lowpass_velocity.reset()
-        self.lowpass_steering.reset()
+        return throttle, brake, steering
