@@ -3,9 +3,10 @@
 import rospy
 from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
-from geometry_msgs.msg import TwistStamped, PoseStamped
+from geometry_msgs.msg import TwistStamped
 import math
-
+from styx_msgs.msg import Lane, Waypoint
+from geometry_msgs.msg import PoseStamped, Pose
 from twist_controller import Controller
 
 '''
@@ -53,94 +54,90 @@ class DBWNode(object):
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
 
-        self.controller = Controller(vehicle_mass, fuel_capacity, brake_deadband, decel_limit, accel_limit, wheel_radius, wheel_base,
-                                        steer_ratio, max_lat_accel, max_steer_angle)
+        params = {
+            'vehicle_mass'      : vehicle_mass,
+            'fuel_capacity'     : fuel_capacity,
+            'brake_deadband'    : brake_deadband,
+            'decel_limit'       : decel_limit,
+            'accel_limit'       : accel_limit,
+            'wheel_radius'      : wheel_radius,
+            'wheel_base'        : wheel_base,
+            'steer_ratio'       : steer_ratio,
+            'max_lat_accel'     : max_lat_accel,
+            'max_steer_angle'   : max_steer_angle
+        }
+        self.controller = Controller(**params)
 
-        self.twist_cmd = None
-        rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cb)
-        self.cur_pose = None
-        rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        self.cur_velocity = None
-        rospy.Subscriber('/current_velocity', TwistStamped, self.vel_cb)
-        self.dbw_enabled = True
-        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_cb)
-        self.is_signal_red = False
-        rospy.Subscriber('/is_signal_red', Bool, self.light_cb)
-        self.time_last_sample = rospy.rostime.get_time()
+        self.dbw_enabled = False
+        self.current_setpoint = None
+        self.current_velocity = None
+        self.final_waypoints = None
+        self.current_pose = None
 
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb, queue_size=1)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cmd_cb, queue_size=1)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb, queue_size=1)
+        rospy.Subscriber('/final_waypoints', Lane, self.final_waypoints_cb)
+        rospy.Subscriber('/current_pose', PoseStamped, self.current_pose_cb)
         self.loop()
 
     def loop(self):
         rate = rospy.Rate(10) # 50Hz
         while not rospy.is_shutdown():
-            time_elapsed = rospy.rostime.get_time() - self.time_last_sample
-            self.time_last_sample = rospy.rostime.get_time()
-            if self.control_precheck() == True:
-                throttle, brake, steer = self.controller.control(self.twist_cmd.twist.linear.x,
-                                                                    self.twist_cmd.twist.angular.z,
-                                                                    self.cur_velocity.twist.linear.x,
-                                                                    time_elapsed,
-                                                                    self.dbw_enabled)
-                if self.dbw_enabled == True:
-                  self.publish(throttle, brake, steer)
-                else:
-                  self.controller.reset_pid()
+            # You should only publish the control commands if dbw is enabled
+            if (self.final_waypoints is not None) and (self.current_pose is not None) \
+            and (self.current_velocity is not None) and (self.current_setpoint is not None):
+                fwp_size = len(self.final_waypoints.waypoints) 
+                final_waypoint1 = self.final_waypoints.waypoints[0] if fwp_size>0 else None
+                final_waypoint2 = self.final_waypoints.waypoints[1] if fwp_size>1 else None
+                current_location    = self.current_pose.pose.position
+                linear_setpoint     = self.current_setpoint.twist.linear.x
+                angular_setpoint    = self.current_setpoint.twist.angular.z
+                linear_current      = self.current_velocity.twist.linear.x
+                angular_current     = self.current_velocity.twist.angular.z
+                throttle, brake, steering = self.controller.control(linear_setpoint, angular_setpoint, linear_current, angular_current, self.dbw_enabled, final_waypoint1, final_waypoint2, current_location)
+                if self.dbw_enabled:
+                    self.publish(throttle, brake, steering)
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
         tcmd = ThrottleCmd()
-        tcmd.enable = False
+        tcmd.enable = True
         tcmd.pedal_cmd_type = ThrottleCmd.CMD_PERCENT
-        bcmd = BrakeCmd()
-        bcmd.enable = False
-        bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
+        tcmd.pedal_cmd = throttle
+        self.throttle_pub.publish(tcmd)
 
-        if (throttle > 0.0):
-            tcmd.enable = True
-        elif (brake != 0.0):
-            # only brake for traffic light. Otherwise bleed off speed by lifting throttle only
-            if (self.is_signal_red):
-                bcmd.enable = True
-
-        # if we are almost stopped (~1.5 mph), fully engage brakes and keep engaged
-        if (self.cur_velocity.twist.linear.x < 0.6) and (self.is_signal_red):
-            brake = -20000
-            bcmd.enable = True
-
-        if (bcmd.enable):
-            bcmd.pedal_cmd = brake
-            self.brake_pub.publish(bcmd)
-        elif (tcmd.enable):
-            tcmd.pedal_cmd = throttle
-            self.throttle_pub.publish(tcmd)
-
+        
         scmd = SteeringCmd()
         scmd.enable = True
         scmd.steering_wheel_angle_cmd = steer
         self.steer_pub.publish(scmd)
 
-    def pose_cb(self, msg):
-        self.cur_pose = msg
+        bcmd = BrakeCmd()
+        bcmd.enable = True
+        bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
+        bcmd.pedal_cmd = brake
+        self.brake_pub.publish(bcmd)
+        pass
 
-    def twist_cb(self, msg):
-        self.twist_cmd = msg
+    def dbw_enabled_cb(self, msg):
+        self.dbw_enabled = msg.data
+        pass        
 
-    def vel_cb(self, msg):
-        self.cur_velocity = msg
+    def twist_cmd_cb(self, msg):
+        self.current_setpoint = msg
+        pass
 
-    # /vehicle/dbw_enabled does not get published on the simulator at all
-    def dbw_cb(self, msg):
-        if msg != None:
-            self.dbw_enabled = msg.data
+    def current_velocity_cb(self, msg):
+        self.current_velocity = msg
+        pass
 
-    def light_cb(self, msg):
-        self.is_signal_red = msg.data
+    def final_waypoints_cb(self, msg):
+        self.final_waypoints = msg
+        pass
 
-    def control_precheck(self):
-        if self.twist_cmd != None and self.cur_pose != None and self.cur_velocity != None:
-            return True
-        return False
-
-
+    def current_pose_cb(self, msg):
+        self.current_pose = msg
+        pass
 if __name__ == '__main__':
     DBWNode()
